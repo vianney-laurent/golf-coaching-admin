@@ -10,6 +10,7 @@ Interface d'administration pour gérer les messages in-app de l'application mobi
 - Prévisualisation des messages
 - Gestion des dates d'activation
 - Statistiques de vues/fermetures
+- Authentification sécurisée avec Supabase (accès réservé à l’administrateur)
 
 ## Installation
 
@@ -22,9 +23,14 @@ npm install
 1. Copiez `.env.local.example` vers `.env.local`
 2. Remplissez les variables d'environnement :
    - `NEXT_PUBLIC_SUPABASE_URL` : URL de votre projet Supabase
-   - `SUPABASE_SERVICE_ROLE_KEY` : Clé service role de Supabase (pour accès admin)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` : Clé publique (anon) utilisée par le client pour l’authentification Supabase
+   - `SUPABASE_SERVICE_ROLE_KEY` : Clé service role Supabase (utilisée uniquement dans les routes API côté serveur)
+   - `ADMIN_EMAIL` : Email du compte Supabase autorisé à accéder à l’interface
 
-⚠️ **Important** : La clé service role ne doit JAMAIS être exposée côté client. Elle est utilisée uniquement dans les API routes Next.js.
+⚠️ **Important**
+
+- La clé service role ne doit **jamais** être exposée côté client.
+- `ADMIN_EMAIL` doit correspondre exactement au compte Supabase que vous utiliserez pour vous connecter via `/login`.
 
 ## Développement
 
@@ -44,7 +50,8 @@ npm start
 ## Structure
 
 - `/pages` : Pages Next.js
-- `/components` : Composants React
-- `/lib` : Utilitaires et services (Supabase client, etc.)
+  - `/pages/api` : Routes API sécurisées (service role Supabase)
+  - `/pages/login.tsx` : Page de connexion administrateur
+- `/lib` : Utilitaires (clients Supabase, helpers d’authentification)
 - `/types` : Types TypeScript
 

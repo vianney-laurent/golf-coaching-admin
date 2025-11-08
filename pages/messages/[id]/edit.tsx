@@ -1,63 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { supabaseAdmin } from '../../../lib/supabase-admin';
-import { InAppMessageFormData } from '../../../types/in-app-messages';
 import Link from 'next/link';
+import type { GetServerSideProps } from 'next';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import {
+  InAppMessageFormData,
+  InAppMessage,
+} from '../../../types/in-app-messages';
+import { requireAdminSession } from '../../../lib/auth';
 
-export default function EditMessage() {
+type EditMessageProps = {
+  message: InAppMessage;
+};
+
+export default function EditMessage({ message }: EditMessageProps) {
   const router = useRouter();
-  const { id } = router.query;
-  const [loading, setLoading] = useState(true);
+  const supabase = useSupabaseClient();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<InAppMessageFormData>({
-    title: '',
-    content: '',
-    content_type: 'text',
-    type: 'banner',
-    priority: 0,
-    requires_marketing_consent: false,
-    is_active: true,
+    title: message.title,
+    content: message.content,
+    content_type: message.content_type,
+    image_url: message.image_url ?? undefined,
+    type: message.type,
+    priority: message.priority,
+    target_user_ids: message.target_user_ids ?? undefined,
+    requires_marketing_consent: message.requires_marketing_consent,
+    start_date: message.start_date ?? undefined,
+    end_date: message.end_date ?? undefined,
+    is_active: message.is_active,
+    action_url: message.action_url ?? undefined,
+    action_label: message.action_label ?? undefined,
   });
 
-  useEffect(() => {
-    if (id) {
-      loadMessage();
-    }
-  }, [id]);
-
-  const loadMessage = async () => {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('in_app_messages')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setFormData({
-          title: data.title,
-          content: data.content,
-          content_type: data.content_type,
-          image_url: data.image_url || undefined,
-          type: data.type,
-          priority: data.priority,
-          target_user_ids: data.target_user_ids || undefined,
-          requires_marketing_consent: data.requires_marketing_consent,
-          start_date: data.start_date || undefined,
-          end_date: data.end_date || undefined,
-          is_active: data.is_active,
-          action_url: data.action_url || undefined,
-          action_label: data.action_label || undefined,
-        });
-      }
-    } catch (error) {
-      console.error('Error loading message:', error);
-      alert('Erreur lors du chargement du message');
-    } finally {
-      setLoading(false);
-    }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,20 +44,22 @@ export default function EditMessage() {
     setSaving(true);
 
     try {
-      const { error } = await supabaseAdmin
-        .from('in_app_messages')
-        .update({
-          ...formData,
-          target_user_ids: formData.target_user_ids?.length ? formData.target_user_ids : null,
-          image_url: formData.image_url || null,
-          action_url: formData.action_url || null,
-          action_label: formData.action_label || null,
-          start_date: formData.start_date || null,
-          end_date: formData.end_date || null,
-        })
-        .eq('id', id);
+      const response = await fetch(`/api/messages/${message.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) throw error;
+      if (response.status === 401 || response.status === 403) {
+        await handleSignOut();
+        return;
+      }
+
+      if (!response.ok) {
+        const { error } = await response.json();
+        throw new Error(error ?? 'Erreur inconnue');
+      }
+
       router.push('/');
     } catch (error) {
       console.error('Error updating message:', error);
@@ -117,25 +98,31 @@ export default function EditMessage() {
     reader.readAsText(file);
   };
 
-  if (loading) {
     return (
-      <main style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Chargement...</p>
-      </main>
-    );
-  }
-
-  return (
-    <>
-      <Head>
-        <title>Éditer Message - Admin</title>
-      </Head>
-      <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none' }}>
-            ← Retour à la liste
-          </Link>
-        </div>
+      <>
+        <Head>
+          <title>Éditer Message - Admin</title>
+        </Head>
+        <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>
+              ← Retour à la liste
+            </Link>
+            <button
+              onClick={handleSignOut}
+              style={{
+                padding: '0.65rem 1.25rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: '600',
+              }}
+            >
+              Déconnexion
+            </button>
+          </div>
 
         <h1>Éditer Message</h1>
 
@@ -344,4 +331,46 @@ export default function EditMessage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const adminSession = await requireAdminSession(context);
+  if (!('session' in adminSession)) {
+    return adminSession;
+  }
+  const { session } = adminSession;
+
+  const id = context.params?.id;
+  if (typeof id !== 'string') {
+    return {
+      redirect: {
+        destination: '/',
+        permanent: false,
+      },
+    };
+  }
+
+  const { supabaseAdmin } = await import('../../../lib/supabase-admin');
+  const { data, error } = await supabaseAdmin
+    .from('in_app_messages')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    console.error('Error loading message:', error);
+    return {
+      redirect: {
+        destination: '/',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      initialSession: session,
+      message: data,
+    },
+  };
+};
 

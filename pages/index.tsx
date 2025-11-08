@@ -1,29 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
-import { supabaseAdmin } from '../lib/supabase-admin';
-import { InAppMessage } from '../types/in-app-messages';
+import type { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { InAppMessage } from '../types/in-app-messages';
+import { requireAdminSession } from '../lib/auth';
 
-export default function Home() {
-  const [messages, setMessages] = useState<InAppMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+type HomeProps = {
+  messages: InAppMessage[];
+};
 
-  useEffect(() => {
-    loadMessages();
-  }, []);
+export default function Home({ messages: initialMessages }: HomeProps) {
+  const router = useRouter();
+  const supabase = useSupabaseClient();
+  const [messages, setMessages] = useState<InAppMessage[]>(initialMessages);
+  const [loading, setLoading] = useState(false);
 
-  const loadMessages = async () => {
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  };
+
+  const fetchAndRefresh = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data, error } = await supabaseAdmin
-        .from('in_app_messages')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const response = await fetch('/api/messages');
+      if (response.status === 401 || response.status === 403) {
+        await handleSignOut();
+        return;
+      }
 
-      if (error) throw error;
-      setMessages(data || []);
+      if (!response.ok) {
+        throw new Error('Erreur lors du rechargement des messages');
+      }
+      const data = await response.json();
+      setMessages(data);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error(error);
+      alert('Impossible de recharger les messages');
     } finally {
       setLoading(false);
     }
@@ -31,13 +46,19 @@ export default function Home() {
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabaseAdmin
-        .from('in_app_messages')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
+      const response = await fetch(`/api/messages/${id}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus }),
+      });
 
-      if (error) throw error;
-      loadMessages();
+      if (response.status === 401 || response.status === 403) {
+        await handleSignOut();
+        return;
+      }
+
+      if (!response.ok) throw new Error('toggle failed');
+      await fetchAndRefresh();
     } catch (error) {
       console.error('Error toggling message:', error);
       alert('Erreur lors de la mise à jour');
@@ -48,13 +69,15 @@ export default function Home() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) return;
 
     try {
-      const { error } = await supabaseAdmin
-        .from('in_app_messages')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      loadMessages();
+      const response = await fetch(`/api/messages/${id}`, {
+        method: 'DELETE',
+      });
+      if (response.status === 401 || response.status === 403) {
+        await handleSignOut();
+        return;
+      }
+      if (!response.ok) throw new Error('delete failed');
+      await fetchAndRefresh();
     } catch (error) {
       console.error('Error deleting message:', error);
       alert('Erreur lors de la suppression');
@@ -69,17 +92,43 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem' }}>
           <h1>Messages In-App</h1>
-          <Link href="/messages/new" style={{ padding: '0.75rem 1.5rem', backgroundColor: '#10b981', color: 'white', borderRadius: '8px', textDecoration: 'none', fontWeight: '600' }}>
-            + Nouveau Message
-          </Link>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <Link
+                href="/messages/new"
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  fontWeight: '600',
+                }}
+              >
+                + Nouveau Message
+              </Link>
+              <button
+                onClick={handleSignOut}
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  backgroundColor: '#ef4444',
+                  color: 'white',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                }}
+              >
+                Déconnexion
+              </button>
+            </div>
         </div>
 
-        {loading ? (
-          <p>Chargement...</p>
-        ) : messages.length === 0 ? (
+          {loading ? (
+            <p>Chargement...</p>
+          ) : messages.length === 0 ? (
           <p>Aucun message pour le moment.</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
@@ -146,4 +195,35 @@ export default function Home() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const adminSession = await requireAdminSession(context);
+  if (!('session' in adminSession)) {
+    return adminSession;
+  }
+  const { session } = adminSession;
+
+  const { supabaseAdmin } = await import('../lib/supabase-admin');
+  const { data, error } = await supabaseAdmin
+    .from('in_app_messages')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading messages:', error);
+    return {
+      props: {
+        initialSession: session,
+        messages: [],
+      },
+    };
+  }
+
+  return {
+    props: {
+      initialSession: session,
+      messages: data ?? [],
+    },
+  };
+};
 

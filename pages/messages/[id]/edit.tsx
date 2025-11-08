@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import {
@@ -9,6 +8,8 @@ import {
   InAppMessage,
 } from '../../../types/in-app-messages';
 import { requireAdminSession } from '../../../lib/auth';
+import { AppShell } from '../../../components/layout/AppShell';
+import { Button } from '../../../components/ui/Button';
 
 type EditMessageProps = {
   message: InAppMessage;
@@ -89,7 +90,10 @@ export default function EditMessage({ message }: EditMessageProps) {
             .filter((line) => line.length > 0);
         }
 
-        setFormData({ ...formData, target_user_ids: userIds });
+        setFormData((previous) => ({
+          ...previous,
+          target_user_ids: userIds,
+        }));
         alert(`${userIds.length} userIds chargés`);
       } catch (error) {
         alert('Erreur lors du chargement du fichier');
@@ -98,238 +102,318 @@ export default function EditMessage({ message }: EditMessageProps) {
     reader.readAsText(file);
   };
 
+    const updatedAt = useMemo(() => {
+      try {
+        return new Date(message.updated_at).toLocaleString('fr-FR', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        return null;
+      }
+    }, [message.updated_at]);
+
     return (
       <>
         <Head>
           <title>Éditer Message - Admin</title>
         </Head>
-        <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>
-              ← Retour à la liste
-            </Link>
-            <button
-              onClick={handleSignOut}
-              style={{
-                padding: '0.65rem 1.25rem',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
+        <AppShell
+          title="Modifier le message"
+          description={`Mettez à jour "${message.title}" et conservez une expérience mobile cohérente.`}
+          breadcrumbs={[
+            { label: 'Messages', href: '/' },
+            { label: message.title },
+          ]}
+          actions={
+            <Button href="/" variant="secondary">
+              Retour à la liste
+            </Button>
+          }
+          headerActions={
+            <Button variant="ghost" onClick={handleSignOut}>
               Déconnexion
-            </button>
-          </div>
+            </Button>
+          }
+        >
+          <div className="ms-card">
+            <form onSubmit={handleSubmit} className="ms-form">
+              <section className="ms-section">
+                <h2 className="ms-section__title">Contenu du message</h2>
+                <p className="ms-section__description">
+                  Ajustez le contenu affiché sur l’application mobile My Swing.
+                </p>
 
-        <h1>Éditer Message</h1>
+                <div className="ms-field">
+                  <label htmlFor="title" className="ms-field__label">
+                    Titre *
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    required
+                    className="ms-input"
+                    value={formData.title}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
+                  />
+                </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Titre *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
+                <div className="ms-field">
+                  <label htmlFor="content" className="ms-field__label">
+                    Contenu *
+                  </label>
+                  <textarea
+                    id="content"
+                    required
+                    rows={6}
+                    className="ms-textarea"
+                    value={formData.content}
+                    onChange={(e) =>
+                      setFormData({ ...formData, content: e.target.value })
+                    }
+                  />
+                  <span className="ms-field__hint">
+                    Support {formData.content_type === 'markdown' ? 'Markdown' : formData.content_type.toUpperCase()} disponible.
+                  </span>
+                </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Contenu *
-            </label>
-            <textarea
-              required
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              rows={6}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontFamily: 'inherit' }}
-            />
-          </div>
+                <div className="ms-form__grid ms-form__grid--two">
+                  <div className="ms-field">
+                    <label htmlFor="contentType" className="ms-field__label">
+                      Type de contenu
+                    </label>
+                    <select
+                      id="contentType"
+                      className="ms-select"
+                      value={formData.content_type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          content_type: e.target.value as InAppMessageFormData['content_type'],
+                        })
+                      }
+                    >
+                      <option value="text">Texte</option>
+                      <option value="html">HTML</option>
+                      <option value="markdown">Markdown</option>
+                    </select>
+                  </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Type de contenu
-            </label>
-            <select
-              value={formData.content_type}
-              onChange={(e) => setFormData({ ...formData, content_type: e.target.value as any })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            >
-              <option value="text">Texte</option>
-              <option value="html">HTML</option>
-              <option value="markdown">Markdown</option>
-            </select>
-          </div>
+                  <div className="ms-field">
+                    <label htmlFor="displayType" className="ms-field__label">
+                      Type d&apos;affichage
+                    </label>
+                    <select
+                      id="displayType"
+                      className="ms-select"
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          type: e.target.value as InAppMessageFormData['type'],
+                        })
+                      }
+                    >
+                      <option value="banner">Bannière</option>
+                      <option value="overlay">Overlay</option>
+                    </select>
+                  </div>
+                </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Type d'affichage
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            >
-              <option value="banner">Bannière</option>
-              <option value="overlay">Overlay</option>
-            </select>
-          </div>
+                <div className="ms-field">
+                  <label htmlFor="imageUrl" className="ms-field__label">
+                    URL de l&apos;image (optionnel)
+                  </label>
+                  <input
+                    id="imageUrl"
+                    type="url"
+                    className="ms-input"
+                    placeholder="https://..."
+                    value={formData.image_url || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, image_url: e.target.value })
+                    }
+                  />
+                </div>
+              </section>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              URL de l'image (optionnel)
-            </label>
-            <input
-              type="url"
-              value={formData.image_url || ''}
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
+              <section className="ms-section">
+                <h2 className="ms-section__title">Diffusion & ciblage</h2>
+                <p className="ms-section__description">
+                  Affinez l’ordre d’affichage et le ciblage pour ce message.
+                </p>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Priorité
-            </label>
-            <input
-              type="number"
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
+                <div className="ms-form__grid ms-form__grid--two">
+                  <div className="ms-field">
+                    <label htmlFor="priority" className="ms-field__label">
+                      Priorité
+                    </label>
+                    <input
+                      id="priority"
+                      type="number"
+                      className="ms-input"
+                      value={formData.priority}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          priority: Number.isNaN(parseInt(e.target.value, 10))
+                            ? 0
+                            : parseInt(e.target.value, 10),
+                        })
+                      }
+                    />
+                    <span className="ms-field__hint">
+                      Plus la valeur est élevée, plus le message est mis en avant.
+                    </span>
+                  </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Ciblage par userIds (CSV/JSON)
-            </label>
-            <input
-              type="file"
-              accept=".csv,.json"
-              onChange={handleFileUpload}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-            {formData.target_user_ids && formData.target_user_ids.length > 0 && (
-              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#64748b' }}>
-                {formData.target_user_ids.length} userIds chargés
-              </p>
-            )}
-          </div>
+                  <div className="ms-field">
+                    <label htmlFor="targetFile" className="ms-field__label">
+                      Ciblage (CSV ou JSON)
+                    </label>
+                    <input
+                      id="targetFile"
+                      type="file"
+                      className="ms-input"
+                      accept=".csv,.json"
+                      onChange={handleFileUpload}
+                    />
+                    <span className="ms-field__hint">
+                      {formData.target_user_ids && formData.target_user_ids.length > 0
+                        ? `${formData.target_user_ids.length} userIds chargés`
+                        : 'Laissez vide pour toucher tous les joueurs.'}
+                    </span>
+                  </div>
+                </div>
 
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formData.requires_marketing_consent}
-                onChange={(e) => setFormData({ ...formData, requires_marketing_consent: e.target.checked })}
-              />
-              <span>Nécessite le consentement marketing</span>
-            </label>
-          </div>
+                <label className="ms-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.requires_marketing_consent}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        requires_marketing_consent: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>Requiert le consentement marketing</span>
+                </label>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                Date de début (optionnel)
-              </label>
-              <input
-                type="datetime-local"
-                value={formData.start_date ? formData.start_date.slice(0, 16) : ''}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                Date de fin (optionnel)
-              </label>
-              <input
-                type="datetime-local"
-                value={formData.end_date ? formData.end_date.slice(0, 16) : ''}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-              />
-            </div>
-          </div>
+                <div className="ms-form__grid ms-form__grid--two">
+                  <div className="ms-field">
+                    <label htmlFor="startDate" className="ms-field__label">
+                      Date de début (optionnel)
+                    </label>
+                    <input
+                      id="startDate"
+                      type="datetime-local"
+                      className="ms-input"
+                      value={formData.start_date ? formData.start_date.slice(0, 16) : ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          start_date: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : undefined,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="ms-field">
+                    <label htmlFor="endDate" className="ms-field__label">
+                      Date de fin (optionnel)
+                    </label>
+                    <input
+                      id="endDate"
+                      type="datetime-local"
+                      className="ms-input"
+                      value={formData.end_date ? formData.end_date.slice(0, 16) : ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          end_date: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : undefined,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              URL d'action (optionnel)
-            </label>
-            <input
-              type="url"
-              value={formData.action_url || ''}
-              onChange={(e) => setFormData({ ...formData, action_url: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
+                <label className="ms-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: e.target.checked })
+                    }
+                  />
+                  <span>Message actif</span>
+                </label>
+              </section>
 
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Label du bouton d'action (optionnel)
-            </label>
-            <input
-              type="text"
-              value={formData.action_label || ''}
-              onChange={(e) => setFormData({ ...formData, action_label: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
+              <section className="ms-section">
+                <h2 className="ms-section__title">Action optionnelle</h2>
+                <p className="ms-section__description">
+                  Ajoutez un bouton pour prolonger l’expérience utilisateur.
+                </p>
 
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              />
-              <span>Message actif</span>
-            </label>
-          </div>
+                <div className="ms-form__grid ms-form__grid--two">
+                  <div className="ms-field">
+                    <label htmlFor="actionUrl" className="ms-field__label">
+                      URL d&apos;action
+                    </label>
+                    <input
+                      id="actionUrl"
+                      type="url"
+                      className="ms-input"
+                      placeholder="https://myswing.app/..."
+                      value={formData.action_url || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, action_url: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="ms-field">
+                    <label htmlFor="actionLabel" className="ms-field__label">
+                      Label du bouton
+                    </label>
+                    <input
+                      id="actionLabel"
+                      type="text"
+                      className="ms-input"
+                      placeholder="Découvrir"
+                      value={formData.action_label || ''}
+                      onChange={(e) =>
+                        setFormData({ ...formData, action_label: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </section>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#10b981',
-                color: 'white',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                fontWeight: '600',
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
-              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-            </button>
-            <Link
-              href="/"
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#94a3b8',
-                color: 'white',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontWeight: '600',
-                display: 'inline-block',
-              }}
-            >
-              Annuler
-            </Link>
+              <div className="ms-actions">
+                <Button type="submit" disabled={saving}>
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </Button>
+                <Button href="/" variant="ghost">
+                  Annuler
+                </Button>
+              </div>
+            </form>
+            <p className="ms-footer-note">
+              ID : {message.id} {updatedAt ? `• Dernière mise à jour ${updatedAt}` : ''}
+            </p>
           </div>
-        </form>
-      </main>
-    </>
-  );
+        </AppShell>
+      </>
+    );
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {

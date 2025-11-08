@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import type { GetServerSideProps } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { Button } from '../components/ui/Button';
 
 type LoginProps = {
   errorMessage?: string | null;
@@ -45,145 +46,54 @@ export default function Login({ errorMessage }: LoginProps) {
       <Head>
         <title>Connexion - Admin</title>
       </Head>
-      <main
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f8fafc',
-          padding: '2rem',
-        }}
-      >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '420px',
-            backgroundColor: 'white',
-            padding: '2.5rem',
-            borderRadius: '16px',
-            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.12)',
-          }}
-        >
-          <h1
-            style={{
-              marginBottom: '1.5rem',
-              fontSize: '1.75rem',
-              fontWeight: 700,
-              textAlign: 'center',
-              color: '#0f172a',
-            }}
-          >
-            Accès administrateur
-          </h1>
-
-          <p
-            style={{
-              marginBottom: '2rem',
-              textAlign: 'center',
-              color: '#475569',
-            }}
-          >
-            Connectez-vous avec votre compte Supabase autorisé.
-          </p>
-
-          {error && (
-            <div
-              style={{
-                marginBottom: '1.5rem',
-                padding: '0.75rem 1rem',
-                borderRadius: '8px',
-                backgroundColor: '#fee2e2',
-                color: '#b91c1c',
-                fontSize: '0.95rem',
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div>
-              <label
-                htmlFor="email"
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: 600,
-                  color: '#0f172a',
-                }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="vous@exemple.com"
-                style={{
-                  width: '100%',
-                  padding: '0.85rem 1rem',
-                  border: '1px solid #cbd5f5',
-                  borderRadius: '10px',
-                  backgroundColor: '#f8fafc',
-                  fontSize: '1rem',
-                }}
-              />
+        <div className="ms-auth">
+          <div className="ms-card ms-auth__panel">
+            <div className="ms-section">
+              <h1 className="ms-auth__title">Accès administrateur</h1>
+              <p className="ms-auth__subtitle">
+                Connectez-vous avec votre compte Supabase autorisé.
+              </p>
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: 600,
-                  color: '#0f172a',
-                }}
-              >
-                Mot de passe
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  padding: '0.85rem 1rem',
-                  border: '1px solid #cbd5f5',
-                  borderRadius: '10px',
-                  backgroundColor: '#f8fafc',
-                  fontSize: '1rem',
-                }}
-              />
-            </div>
+            {error && <div className="ms-alert ms-alert--error">{error}</div>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '0.95rem 1rem',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundImage: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-                color: 'white',
-                fontWeight: 600,
-                fontSize: '1.05rem',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="ms-form">
+              <div className="ms-field">
+                <label htmlFor="email" className="ms-field__label">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  className="ms-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vous@exemple.com"
+                />
+              </div>
+
+              <div className="ms-field">
+                <label htmlFor="password" className="ms-field__label">
+                  Mot de passe
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  className="ms-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <Button type="submit" disabled={loading} fullWidth>
+                {loading ? 'Connexion...' : 'Se connecter'}
+              </Button>
+            </form>
+          </div>
         </div>
-      </main>
     </>
   );
 }

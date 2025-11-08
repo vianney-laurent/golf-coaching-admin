@@ -76,7 +76,10 @@ export default function NewMessage() {
             .filter((line) => line.length > 0);
         }
 
-        setFormData({ ...formData, target_user_ids: userIds });
+        setFormData((previous) => ({
+          ...previous,
+          target_user_ids: userIds,
+        }));
         alert(`${userIds.length} userIds chargés`);
       } catch (error) {
         alert('Erreur lors du chargement du fichier');
@@ -90,231 +93,294 @@ export default function NewMessage() {
       <Head>
         <title>Nouveau Message - Admin</title>
       </Head>
-        <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>
-              ← Retour à la liste
-            </Link>
-            <button
-              onClick={handleSignOut}
-              style={{
-                padding: '0.65rem 1.25rem',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: '600',
-              }}
-            >
-              Déconnexion
-            </button>
-          </div>
-
-        <h1>Nouveau Message</h1>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Titre *
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Contenu *
-            </label>
-            <textarea
-              required
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              rows={6}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px', fontFamily: 'inherit' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Type de contenu
-            </label>
-            <select
-              value={formData.content_type}
-              onChange={(e) => setFormData({ ...formData, content_type: e.target.value as any })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            >
-              <option value="text">Texte</option>
-              <option value="html">HTML</option>
-              <option value="markdown">Markdown</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Type d'affichage
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            >
-              <option value="banner">Bannière</option>
-              <option value="overlay">Overlay</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              URL de l'image (optionnel)
-            </label>
-            <input
-              type="url"
-              value={formData.image_url || ''}
-              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Priorité
-            </label>
-            <input
-              type="number"
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Ciblage par userIds (CSV/JSON)
-            </label>
-            <input
-              type="file"
-              accept=".csv,.json"
-              onChange={handleFileUpload}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-            {formData.target_user_ids && formData.target_user_ids.length > 0 && (
-              <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#64748b' }}>
-                {formData.target_user_ids.length} userIds chargés
+      <AppShell
+        title="Nouveau message"
+        description="Diffusez un message ciblé sur l’application My Swing avec une structure prête à dupliquer."
+        breadcrumbs={[
+          { label: 'Messages', href: '/' },
+          { label: 'Nouveau message' },
+        ]}
+        actions={
+          <Button href="/" variant="secondary">
+            Retour à la liste
+          </Button>
+        }
+        headerActions={
+          <Button variant="ghost" onClick={handleSignOut}>
+            Déconnexion
+          </Button>
+        }
+      >
+        <div className="ms-card">
+          <form onSubmit={handleSubmit} className="ms-form">
+            <section className="ms-section">
+              <h2 className="ms-section__title">Contenu du message</h2>
+              <p className="ms-section__description">
+                Rédigez les informations qui seront affichées dans l’application mobile.
               </p>
-            )}
-          </div>
 
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formData.requires_marketing_consent}
-                onChange={(e) => setFormData({ ...formData, requires_marketing_consent: e.target.checked })}
-              />
-              <span>Nécessite le consentement marketing</span>
-            </label>
-          </div>
+              <div className="ms-field">
+                <label htmlFor="title" className="ms-field__label">
+                  Titre *
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  required
+                  className="ms-input"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                />
+              </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                Date de début (optionnel)
+              <div className="ms-field">
+                <label htmlFor="content" className="ms-field__label">
+                  Contenu *
+                </label>
+                <textarea
+                  id="content"
+                  required
+                  rows={6}
+                  className="ms-textarea"
+                  value={formData.content}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
+                />
+                <span className="ms-field__hint">
+                  Support {formData.content_type === 'markdown' ? 'Markdown' : formData.content_type.toUpperCase()} disponible.
+                </span>
+              </div>
+
+              <div className="ms-form__grid ms-form__grid--two">
+                <div className="ms-field">
+                  <label htmlFor="contentType" className="ms-field__label">
+                    Type de contenu
+                  </label>
+                  <select
+                    id="contentType"
+                    className="ms-select"
+                    value={formData.content_type}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        content_type: e.target.value as InAppMessageFormData['content_type'],
+                      })
+                    }
+                  >
+                    <option value="text">Texte</option>
+                    <option value="html">HTML</option>
+                    <option value="markdown">Markdown</option>
+                  </select>
+                </div>
+
+                <div className="ms-field">
+                  <label htmlFor="displayType" className="ms-field__label">
+                    Type d&apos;affichage
+                  </label>
+                  <select
+                    id="displayType"
+                    className="ms-select"
+                    value={formData.type}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        type: e.target.value as InAppMessageFormData['type'],
+                      })
+                    }
+                  >
+                    <option value="banner">Bannière</option>
+                    <option value="overlay">Overlay</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="ms-field">
+                <label htmlFor="imageUrl" className="ms-field__label">
+                  URL de l&apos;image (optionnel)
+                </label>
+                <input
+                  id="imageUrl"
+                  type="url"
+                  className="ms-input"
+                  placeholder="https://..."
+                  value={formData.image_url || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, image_url: e.target.value })
+                  }
+                />
+              </div>
+            </section>
+
+            <section className="ms-section">
+              <h2 className="ms-section__title">Diffusion & ciblage</h2>
+              <p className="ms-section__description">
+                Paramétrez l’ordre d’affichage et les audiences ciblées pour la campagne.
+              </p>
+
+              <div className="ms-form__grid ms-form__grid--two">
+                <div className="ms-field">
+                  <label htmlFor="priority" className="ms-field__label">
+                    Priorité
+                  </label>
+                  <input
+                    id="priority"
+                    type="number"
+                    className="ms-input"
+                    value={formData.priority}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        priority: Number.isNaN(parseInt(e.target.value, 10))
+                          ? 0
+                          : parseInt(e.target.value, 10),
+                      })
+                    }
+                  />
+                  <span className="ms-field__hint">
+                    Plus la valeur est élevée, plus le message sera mis en avant.
+                  </span>
+                </div>
+
+                <div className="ms-field">
+                  <label htmlFor="targetFile" className="ms-field__label">
+                    Ciblage (CSV ou JSON)
+                  </label>
+                  <input
+                    id="targetFile"
+                    type="file"
+                    className="ms-input"
+                    accept=".csv,.json"
+                    onChange={handleFileUpload}
+                  />
+                  <span className="ms-field__hint">
+                    {formData.target_user_ids && formData.target_user_ids.length > 0
+                      ? `${formData.target_user_ids.length} userIds chargés`
+                      : 'Laissez vide pour s’adresser à tous les joueurs.'}
+                  </span>
+                </div>
+              </div>
+
+              <label className="ms-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formData.requires_marketing_consent}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      requires_marketing_consent: e.target.checked,
+                    })
+                  }
+                />
+                <span>Requiert le consentement marketing</span>
               </label>
-              <input
-                type="datetime-local"
-                value={formData.start_date ? formData.start_date.slice(0, 16) : ''}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                Date de fin (optionnel)
+
+              <div className="ms-form__grid ms-form__grid--two">
+                <div className="ms-field">
+                  <label htmlFor="startDate" className="ms-field__label">
+                    Date de début (optionnel)
+                  </label>
+                  <input
+                    id="startDate"
+                    type="datetime-local"
+                    className="ms-input"
+                    value={formData.start_date ? formData.start_date.slice(0, 16) : ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        start_date: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : undefined,
+                      })
+                    }
+                  />
+                </div>
+                <div className="ms-field">
+                  <label htmlFor="endDate" className="ms-field__label">
+                    Date de fin (optionnel)
+                  </label>
+                  <input
+                    id="endDate"
+                    type="datetime-local"
+                    className="ms-input"
+                    value={formData.end_date ? formData.end_date.slice(0, 16) : ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        end_date: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : undefined,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <label className="ms-checkbox">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.checked })
+                  }
+                />
+                <span>Activer le message dès sa création</span>
               </label>
-              <input
-                type="datetime-local"
-                value={formData.end_date ? formData.end_date.slice(0, 16) : ''}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-                style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-              />
+            </section>
+
+            <section className="ms-section">
+              <h2 className="ms-section__title">Action optionnelle</h2>
+              <p className="ms-section__description">
+                Ajoutez un bouton pour rediriger vos utilisateurs vers une page précise.
+              </p>
+
+              <div className="ms-form__grid ms-form__grid--two">
+                <div className="ms-field">
+                  <label htmlFor="actionUrl" className="ms-field__label">
+                    URL d&apos;action
+                  </label>
+                  <input
+                    id="actionUrl"
+                    type="url"
+                    className="ms-input"
+                    placeholder="https://myswing.app/..."
+                    value={formData.action_url || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, action_url: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="ms-field">
+                  <label htmlFor="actionLabel" className="ms-field__label">
+                    Label du bouton
+                  </label>
+                  <input
+                    id="actionLabel"
+                    type="text"
+                    className="ms-input"
+                    placeholder="Découvrir"
+                    value={formData.action_label || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, action_label: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="ms-actions">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Création...' : 'Créer le message'}
+              </Button>
+              <Button href="/" variant="ghost">
+                Annuler
+              </Button>
             </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              URL d'action (optionnel)
-            </label>
-            <input
-              type="url"
-              value={formData.action_url || ''}
-              onChange={(e) => setFormData({ ...formData, action_url: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-              Label du bouton d'action (optionnel)
-            </label>
-            <input
-              type="text"
-              value={formData.action_label || ''}
-              onChange={(e) => setFormData({ ...formData, action_label: e.target.value })}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: '6px' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              />
-              <span>Message actif</span>
-            </label>
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#10b981',
-                color: 'white',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: '600',
-                opacity: loading ? 0.6 : 1,
-              }}
-            >
-              {loading ? 'Création...' : 'Créer le message'}
-            </button>
-            <Link
-              href="/"
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#94a3b8',
-                color: 'white',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontWeight: '600',
-                display: 'inline-block',
-              }}
-            >
-              Annuler
-            </Link>
-          </div>
-        </form>
-      </main>
+          </form>
+        </div>
+      </AppShell>
     </>
   );
 }

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { supabaseAdmin } from '../../lib/supabase-admin';
-import { InAppMessageFormData } from '../../types/in-app-messages';
 import Link from 'next/link';
+import type { GetServerSideProps } from 'next';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { InAppMessageFormData } from '../../types/in-app-messages';
+import { requireAdminSession } from '../../lib/auth';
 
 export default function NewMessage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<InAppMessageFormData>({
     title: '',
@@ -18,22 +21,32 @@ export default function NewMessage() {
     is_active: true,
   });
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/login');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabaseAdmin.from('in_app_messages').insert({
-        ...formData,
-        target_user_ids: formData.target_user_ids?.length ? formData.target_user_ids : null,
-        image_url: formData.image_url || null,
-        action_url: formData.action_url || null,
-        action_label: formData.action_label || null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
 
-      if (error) throw error;
+      if (response.status === 401 || response.status === 403) {
+        await handleSignOut();
+        return;
+      }
+
+      if (!response.ok) {
+        const { error } = await response.json();
+        throw new Error(error ?? 'Erreur inconnue');
+      }
+
       router.push('/');
     } catch (error) {
       console.error('Error creating message:', error);
@@ -77,12 +90,26 @@ export default function NewMessage() {
       <Head>
         <title>Nouveau Message - Admin</title>
       </Head>
-      <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none' }}>
-            ← Retour à la liste
-          </Link>
-        </div>
+        <main style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <Link href="/" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>
+              ← Retour à la liste
+            </Link>
+            <button
+              onClick={handleSignOut}
+              style={{
+                padding: '0.65rem 1.25rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: '600',
+              }}
+            >
+              Déconnexion
+            </button>
+          </div>
 
         <h1>Nouveau Message</h1>
 
@@ -291,4 +318,17 @@ export default function NewMessage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const adminSession = await requireAdminSession(context);
+  if ('redirect' in adminSession) {
+    return adminSession;
+  }
+
+  return {
+    props: {
+      initialSession: adminSession.session,
+    },
+  };
+};
 

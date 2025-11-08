@@ -321,13 +321,14 @@ export default function NewMessage() {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const adminSession = await requireAdminSession(context);
-  if ('redirect' in adminSession) {
+  if (!('session' in adminSession)) {
     return adminSession;
   }
+  const { session } = adminSession;
 
   return {
     props: {
-      initialSession: adminSession.session,
+      initialSession: session,
     },
   };
 };

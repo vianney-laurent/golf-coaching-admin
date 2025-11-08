@@ -334,9 +334,10 @@ export default function EditMessage({ message }: EditMessageProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const adminSession = await requireAdminSession(context);
-  if ('redirect' in adminSession) {
+  if (!('session' in adminSession)) {
     return adminSession;
   }
+  const { session } = adminSession;
 
   const id = context.params?.id;
   if (typeof id !== 'string') {
@@ -367,7 +368,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   return {
     props: {
-      initialSession: adminSession.session,
+      initialSession: session,
       message: data,
     },
   };

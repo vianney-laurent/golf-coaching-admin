@@ -198,9 +198,10 @@ export default function Home({ messages: initialMessages }: HomeProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const adminSession = await requireAdminSession(context);
-  if ('redirect' in adminSession) {
+  if (!('session' in adminSession)) {
     return adminSession;
   }
+  const { session } = adminSession;
 
   const { supabaseAdmin } = await import('../lib/supabase-admin');
   const { data, error } = await supabaseAdmin
@@ -212,7 +213,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     console.error('Error loading messages:', error);
     return {
       props: {
-        initialSession: adminSession.session,
+        initialSession: session,
         messages: [],
       },
     };
@@ -220,7 +221,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   return {
     props: {
-      initialSession: adminSession.session,
+      initialSession: session,
       messages: data ?? [],
     },
   };

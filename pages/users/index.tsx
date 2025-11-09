@@ -69,6 +69,64 @@ const getProfileEmail = (profile: UserProfile) => {
   return '—';
 };
 
+const getProfileName = (profile: UserProfile) => {
+  const extractString = (value: unknown) =>
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+
+  const pickFromSources = (keys: string[]) => {
+    for (const key of keys) {
+      const direct = extractString(profile[key]);
+      if (direct) {
+        return direct;
+      }
+      if (
+        typeof profile.raw_user_meta_data === 'object' &&
+        profile.raw_user_meta_data !== null
+      ) {
+        const metaValue = extractString(
+          (profile.raw_user_meta_data as Record<string, unknown>)[key]
+        );
+        if (metaValue) {
+          return metaValue;
+        }
+      }
+    }
+    return null;
+  };
+
+  const fullName = pickFromSources(['full_name', 'fullName', 'name', 'display_name']);
+  if (fullName) {
+    return fullName;
+  }
+
+  const firstName = pickFromSources([
+    'first_name',
+    'firstName',
+    'prenom',
+    'given_name',
+    'givenName',
+  ]);
+  const lastName = pickFromSources([
+    'last_name',
+    'lastName',
+    'nom',
+    'family_name',
+    'familyName',
+  ]);
+
+  if (firstName && lastName) {
+    return `${firstName} ${lastName}`.trim();
+  }
+  if (firstName) {
+    return firstName;
+  }
+  if (lastName) {
+    return lastName;
+  }
+
+  return 'Nom non renseigné';
+};
+
 const getProfileStatus = (profile: UserProfile) => {
   if (typeof profile.status === 'string') {
     return humanizeKey(profile.status);
@@ -255,11 +313,13 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
   };
 
   const handleResetPassword = async (profile: UserProfile) => {
+    const profileName = getProfileName(profile);
+    const fallbackEmail = getProfileEmail(profile);
     const label =
-      typeof profile.full_name === 'string' && profile.full_name.length > 0
-        ? profile.full_name
-        : getProfileEmail(profile) !== '—'
-        ? getProfileEmail(profile)
+      profileName !== 'Nom non renseigné'
+        ? profileName
+        : fallbackEmail !== '—'
+        ? fallbackEmail
         : profile.id;
 
     if (typeof window !== 'undefined') {
@@ -376,10 +436,7 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
                   <tbody>
                     {profiles.map((profile) => {
                       const isSelected = profile.id === selectedId;
-                      const displayName =
-                        typeof profile.full_name === 'string' && profile.full_name.length > 0
-                          ? profile.full_name
-                          : 'Nom non renseigné';
+                      const displayName = getProfileName(profile);
 
                       return (
                         <tr
@@ -438,10 +495,7 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
               <div className="ms-users-mobile-list" aria-live="polite">
                 {profiles.map((profile) => {
                   const isSelected = profile.id === selectedId;
-                  const displayName =
-                    typeof profile.full_name === 'string' && profile.full_name.length > 0
-                      ? profile.full_name
-                      : 'Nom non renseigné';
+                  const displayName = getProfileName(profile);
 
                   return (
                     <div

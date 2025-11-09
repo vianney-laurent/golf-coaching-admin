@@ -144,11 +144,6 @@ export default function MessagesPage({
             <Button href="/messages/new">Nouveau message</Button>
           </>
         }
-        headerActions={
-          <Button variant="ghost" onClick={handleSignOut}>
-            Déconnexion
-          </Button>
-        }
       >
         <div className="ms-card ms-card--neutral">
           <div className="ms-metric-grid">

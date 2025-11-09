@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import Head from 'next/head';
 import type { GetServerSideProps } from 'next';
-import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { requireAdminSession } from '../../lib/auth';
 import { supabaseAdmin } from '../../lib/supabase-admin';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
-import { classNames } from '../../lib/classNames';
 
 type UserProfile = Record<string, any> & { id: string };
 
@@ -185,10 +182,8 @@ const serialiseProfiles = (profiles: any[] | null | undefined): UserProfile[] =>
     : [];
 
 export default function UsersPage({ initialProfiles, initialError }: UsersPageProps) {
-  const router = useRouter();
-  const supabase = useSupabaseClient();
   const [profiles, setProfiles] = useState<UserProfile[]>(initialProfiles);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string | boolean>>({});
   const [feedback, setFeedback] = useState<Feedback | null>(
     initialError ? { type: 'error', message: initialError } : null
@@ -196,43 +191,79 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
   const [saving, setSaving] = useState(false);
   const [resettingId, setResettingId] = useState<string | null>(null);
 
-  const selectedProfile = useMemo(
-    () => profiles.find((profile) => profile.id === selectedId) ?? null,
-    [profiles, selectedId]
+  const editableFields = useMemo(
+    () => (editingProfile ? buildEditableFields(editingProfile) : []),
+    [editingProfile]
   );
 
-  const editableFields = useMemo(
-    () => (selectedProfile ? buildEditableFields(selectedProfile) : []),
-    [selectedProfile]
+  const editingDisplayName = useMemo(
+    () => (editingProfile ? getProfileName(editingProfile) : ''),
+    [editingProfile]
   );
+
+  const editingSummary = useMemo(() => {
+    if (!editingProfile) {
+      return '';
+    }
+    return `ID ${editingProfile.id} • Dernière mise à jour ${formatDate(
+      editingProfile.updated_at ?? editingProfile.created_at
+    )}`;
+  }, [editingProfile]);
+
+  const closeModal = useCallback(() => {
+    setEditingProfile(null);
+    setFormValues({});
+    setSaving(false);
+  }, []);
 
   useEffect(() => {
-    if (!selectedProfile) {
+    if (!editingProfile) {
       setFormValues({});
       return;
     }
-    setFormValues(buildFormValues(selectedProfile, editableFields));
-  }, [selectedProfile, editableFields]);
+    setFormValues(buildFormValues(editingProfile, editableFields));
+  }, [editingProfile, editableFields]);
 
   useEffect(() => {
-    if (selectedId && !profiles.some((profile) => profile.id === selectedId)) {
-      setSelectedId(null);
+    if (!editingProfile) {
+      return;
     }
-  }, [profiles, selectedId]);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeModal();
+      }
+    };
 
-  const handleSelectProfile = (profileId: string) => {
-    setSelectedId(profileId);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [editingProfile, closeModal]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (!editingProfile) {
+      return;
+    }
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [editingProfile]);
+
+  const handleOpenEdit = (profile: UserProfile) => {
+    setEditingProfile(profile);
     setFeedback(null);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedProfile) {
+    if (!editingProfile) {
       return;
     }
 
@@ -257,7 +288,7 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
         return acc;
       }, {});
 
-      const response = await fetch(`/api/users/${selectedProfile.id}`, {
+      const response = await fetch(`/api/users/${editingProfile.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -293,6 +324,7 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
         type: 'success',
         message: 'Profil mis à jour avec succès.',
       });
+      closeModal();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Une erreur inconnue est survenue.';
@@ -306,10 +338,10 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
   };
 
   const handleResetForm = () => {
-    if (!selectedProfile) {
+    if (!editingProfile) {
       return;
     }
-    setFormValues(buildFormValues(selectedProfile, editableFields));
+    setFormValues(buildFormValues(editingProfile, editableFields));
   };
 
   const handleResetPassword = async (profile: UserProfile) => {
@@ -383,12 +415,7 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Gestion utilisateurs' },
-        ]}
-        headerActions={
-          <Button variant="ghost" onClick={handleSignOut}>
-            Déconnexion
-          </Button>
-        }
+          ]}
       >
         {feedback ? (
           <div
@@ -401,13 +428,14 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
         ) : null}
 
         <div className="ms-card">
-          <div className="ms-card__header">
-            <h2 className="ms-card__title">Profils Supabase</h2>
-            <p className="ms-card__meta">
-              Liste des comptes présents dans la table <code>profiles</code>.
-              Sélectionnez un utilisateur pour le modifier ou réinitialiser son mot de passe.
-            </p>
-          </div>
+            <div className="ms-card__header">
+              <h2 className="ms-card__title">Profils Supabase</h2>
+              <p className="ms-card__meta">
+                Liste des comptes présents dans la table <code>profiles</code>. Utilisez le bouton
+                « Modifier » pour ouvrir une modale d’édition rapide ou réinitialisez un mot de passe
+                en un clic.
+              </p>
+            </div>
 
           {profiles.length === 0 ? (
             <div className="ms-empty-state">
@@ -433,241 +461,235 @@ export default function UsersPage({ initialProfiles, initialError }: UsersPagePr
                       <th>Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {profiles.map((profile) => {
-                      const isSelected = profile.id === selectedId;
-                      const displayName = getProfileName(profile);
+                    <tbody>
+                      {profiles.map((profile) => {
+                        const displayName = getProfileName(profile);
 
-                      return (
-                        <tr
-                          key={profile.id}
-                          className={classNames(
-                            'ms-users-table-row',
-                            isSelected ? 'is-selected' : undefined
-                          )}
-                          aria-selected={isSelected}
-                          onClick={() => handleSelectProfile(profile.id)}
-                        >
-                          <td>
-                            <div
-                              style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}
-                            >
-                              <span style={{ fontWeight: 600 }}>{displayName}</span>
-                              <span className="ms-meta">{profile.id}</span>
-                            </div>
-                          </td>
-                          <td>{getProfileEmail(profile)}</td>
-                          <td>{getProfileStatus(profile)}</td>
-                          <td>{formatDate(profile.updated_at ?? profile.created_at)}</td>
-                          <td>
-                            <div className="ms-actions">
-                              <Button
-                                size="sm"
-                                variant={isSelected ? 'primary' : 'secondary'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleSelectProfile(profile.id);
-                                }}
+                        return (
+                          <tr key={profile.id} className="ms-users-table-row">
+                            <td>
+                              <div
+                                style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}
                               >
-                                {isSelected ? 'Sélectionné' : 'Sélectionner'}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                disabled={resettingId === profile.id}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleResetPassword(profile);
-                                }}
-                              >
-                                {resettingId === profile.id
-                                  ? 'Réinitialisation...'
-                                  : 'Reset mot de passe'}
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
+                                <span style={{ fontWeight: 600 }}>{displayName}</span>
+                                <span className="ms-meta">{profile.id}</span>
+                              </div>
+                            </td>
+                            <td>{getProfileEmail(profile)}</td>
+                            <td>{getProfileStatus(profile)}</td>
+                            <td>{formatDate(profile.updated_at ?? profile.created_at)}</td>
+                            <td>
+                              <div className="ms-actions">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleOpenEdit(profile)}
+                                >
+                                  Modifier
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  disabled={resettingId === profile.id}
+                                  onClick={() => handleResetPassword(profile)}
+                                >
+                                  {resettingId === profile.id
+                                    ? 'Réinitialisation...'
+                                    : 'Reset mot de passe'}
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
                 </table>
               </div>
               <div className="ms-users-mobile-list" aria-live="polite">
-                {profiles.map((profile) => {
-                  const isSelected = profile.id === selectedId;
-                  const displayName = getProfileName(profile);
+                  {profiles.map((profile) => {
+                    const displayName = getProfileName(profile);
 
-                  return (
-                    <div
-                      key={`${profile.id}-mobile`}
-                      className={classNames(
-                        'ms-mobile-card',
-                        isSelected ? 'ms-mobile-card--selected' : undefined
-                      )}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleSelectProfile(profile.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          handleSelectProfile(profile.id);
-                        }
-                      }}
-                      aria-pressed={isSelected}
-                    >
-                      <div className="ms-mobile-card__row">
-                        <div>
-                          <div
-                            className="ms-mobile-card__value"
-                            style={{ marginBottom: '0.35rem' }}
+                    return (
+                      <div key={`${profile.id}-mobile`} className="ms-mobile-card">
+                        <div className="ms-mobile-card__row">
+                          <div>
+                            <div
+                              className="ms-mobile-card__value"
+                              style={{ marginBottom: '0.35rem' }}
+                            >
+                              {displayName}
+                            </div>
+                            <div className="ms-meta">{profile.id}</div>
+                          </div>
+                          <span className="ms-badge ms-badge--neutral">Profil</span>
+                        </div>
+
+                        <div className="ms-mobile-card__row">
+                          <div>
+                            <div className="ms-mobile-card__label">Email</div>
+                            <div className="ms-mobile-card__value">{getProfileEmail(profile)}</div>
+                          </div>
+                        </div>
+
+                        <div className="ms-mobile-card__row">
+                          <div>
+                            <div className="ms-mobile-card__label">Statut</div>
+                            <div className="ms-mobile-card__value">{getProfileStatus(profile)}</div>
+                          </div>
+                          <div>
+                            <div className="ms-mobile-card__label">Mis à jour</div>
+                            <div className="ms-mobile-card__value">
+                              {formatDate(profile.updated_at ?? profile.created_at)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="ms-mobile-card__actions">
+                          <Button size="sm" variant="secondary" onClick={() => handleOpenEdit(profile)}>
+                            Modifier
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={resettingId === profile.id}
+                            onClick={() => handleResetPassword(profile)}
                           >
-                            {displayName}
-                          </div>
-                          <div className="ms-meta">{profile.id}</div>
-                        </div>
-                        <span className="ms-badge ms-badge--neutral">
-                          {isSelected ? 'Sélectionné' : 'Utilisateur'}
-                        </span>
-                      </div>
-
-                      <div className="ms-mobile-card__row">
-                        <div>
-                          <div className="ms-mobile-card__label">Email</div>
-                          <div className="ms-mobile-card__value">{getProfileEmail(profile)}</div>
+                            {resettingId === profile.id
+                              ? 'Réinitialisation...'
+                              : 'Reset mot de passe'}
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="ms-mobile-card__row">
-                        <div>
-                          <div className="ms-mobile-card__label">Statut</div>
-                          <div className="ms-mobile-card__value">{getProfileStatus(profile)}</div>
-                        </div>
-                        <div>
-                          <div className="ms-mobile-card__label">Mis à jour</div>
-                          <div className="ms-mobile-card__value">
-                            {formatDate(profile.updated_at ?? profile.created_at)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="ms-mobile-card__actions">
-                        <Button
-                          size="sm"
-                          variant={isSelected ? 'primary' : 'secondary'}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleSelectProfile(profile.id);
-                          }}
-                        >
-                          {isSelected ? 'Sélectionné' : 'Sélectionner'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          disabled={resettingId === profile.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleResetPassword(profile);
-                          }}
-                        >
-                          {resettingId === profile.id
-                            ? 'Réinitialisation...'
-                            : 'Reset mot de passe'}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </>
           )}
         </div>
+          {editingProfile ? (
+            <div
+              className="ms-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="edit-user-modal-title"
+            >
+              <div
+                className="ms-modal__backdrop"
+                onClick={closeModal}
+                aria-hidden="true"
+              />
+              <div className="ms-modal__dialog">
+                <div className="ms-modal__header">
+                  <div>
+                    <h2 className="ms-modal__title" id="edit-user-modal-title">
+                      Modifier {editingDisplayName}
+                    </h2>
+                    <p className="ms-modal__subtitle">{editingSummary}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="ms-modal__close"
+                    onClick={closeModal}
+                    aria-label="Fermer la modale d’édition"
+                  >
+                    <span aria-hidden="true">&times;</span>
+                  </button>
+                </div>
 
-        <div className="ms-card">
-          <div className="ms-card__header">
-            <h3 className="ms-card__title">Édition du profil sélectionné</h3>
-            <p className="ms-card__meta">
-              {selectedProfile
-                ? `ID ${selectedProfile.id} • Dernière mise à jour ${formatDate(
-                    selectedProfile.updated_at ?? selectedProfile.created_at
-                  )}`
-                : 'Choisissez un utilisateur dans la liste pour afficher ses informations.'}
-            </p>
-          </div>
+                {editableFields.length === 0 ? (
+                  <div className="ms-empty-state">
+                    <p>Aucun champ modifiable détecté pour ce profil.</p>
+                    <p>Vous pouvez néanmoins réinitialiser son mot de passe.</p>
+                    <div
+                      className="ms-actions"
+                      style={{ justifyContent: 'flex-end', marginTop: '1rem' }}
+                    >
+                      <Button
+                        type="button"
+                        variant="danger"
+                        disabled={resettingId === editingProfile.id}
+                        onClick={() => handleResetPassword(editingProfile)}
+                      >
+                        {resettingId === editingProfile.id
+                          ? 'Réinitialisation...'
+                          : 'Reset mot de passe'}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={closeModal}>
+                        Fermer
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <form className="ms-form" onSubmit={handleSubmit}>
+                    <div className="ms-form__grid ms-form__grid--two">
+                      {editableFields.map((field) => (
+                        <label key={field.key} className="ms-field">
+                          <span className="ms-field__label">{field.label}</span>
 
-          {!selectedProfile ? (
-            <div className="ms-empty-state">
-              <p>Sélectionnez un utilisateur dans la liste ci-dessus pour commencer.</p>
-            </div>
-          ) : editableFields.length === 0 ? (
-            <div className="ms-empty-state">
-              <p>Aucun champ modifiable détecté pour ce profil.</p>
-              <p>Vous pouvez néanmoins réinitialiser son mot de passe via la liste.</p>
-            </div>
-          ) : (
-            <form className="ms-form" onSubmit={handleSubmit}>
-              <div className="ms-form__grid ms-form__grid--two">
-                {editableFields.map((field) => (
-                  <label key={field.key} className="ms-field">
-                    <span className="ms-field__label">{field.label}</span>
+                          {field.type === 'boolean' ? (
+                            <label className="ms-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(formValues[field.key])}
+                                onChange={(event) =>
+                                  setFormValues((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.checked,
+                                  }))
+                                }
+                              />
+                              <span>Activer</span>
+                            </label>
+                          ) : (
+                            <input
+                              className="ms-input"
+                              type={field.type === 'number' ? 'number' : 'text'}
+                              value={
+                                typeof formValues[field.key] === 'string'
+                                  ? (formValues[field.key] as string)
+                                  : ''
+                              }
+                              onChange={(event) =>
+                                setFormValues((current) => ({
+                                  ...current,
+                                  [field.key]: event.target.value,
+                                }))
+                              }
+                            />
+                          )}
+                        </label>
+                      ))}
+                    </div>
 
-                    {field.type === 'boolean' ? (
-                      <label className="ms-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(formValues[field.key])}
-                          onChange={(event) =>
-                            setFormValues((current) => ({
-                              ...current,
-                              [field.key]: event.target.checked,
-                            }))
-                          }
-                        />
-                        <span>Activer</span>
-                      </label>
-                    ) : (
-                      <input
-                        className="ms-input"
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        value={
-                          typeof formValues[field.key] === 'string'
-                            ? (formValues[field.key] as string)
-                            : ''
-                        }
-                        onChange={(event) =>
-                          setFormValues((current) => ({
-                            ...current,
-                            [field.key]: event.target.value,
-                          }))
-                        }
-                      />
-                    )}
-                  </label>
-                ))}
+                    <div className="ms-actions">
+                      <Button type="submit" disabled={saving}>
+                        {saving ? 'Enregistrement...' : 'Enregistrer'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleResetForm}
+                        disabled={saving}
+                      >
+                        Réinitialiser
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        disabled={resettingId === editingProfile.id}
+                        onClick={() => handleResetPassword(editingProfile)}
+                      >
+                        {resettingId === editingProfile.id
+                          ? 'Réinitialisation...'
+                          : 'Reset mot de passe'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </div>
-
-              <div className="ms-actions">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
-                </Button>
-                <Button type="button" variant="ghost" onClick={handleResetForm} disabled={saving}>
-                  Réinitialiser le formulaire
-                </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={resettingId === selectedProfile.id}
-                  onClick={() => handleResetPassword(selectedProfile)}
-                >
-                  {resettingId === selectedProfile.id
-                    ? 'Réinitialisation...'
-                    : 'Reset mot de passe'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
-      </AppShell>
+            </div>
+          ) : null}
+        </AppShell>
     </>
   );
 }

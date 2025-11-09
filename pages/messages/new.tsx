@@ -106,11 +106,6 @@ export default function NewMessage() {
             Retour à la liste
           </Button>
         }
-        headerActions={
-          <Button variant="ghost" onClick={handleSignOut}>
-            Déconnexion
-          </Button>
-        }
       >
         <div className="ms-card">
           <form onSubmit={handleSubmit} className="ms-form">

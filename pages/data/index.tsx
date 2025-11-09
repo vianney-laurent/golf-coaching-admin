@@ -1,10 +1,7 @@
 import Head from 'next/head';
 import type { GetServerSideProps } from 'next';
-import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { requireAdminSession } from '../../lib/auth';
 import { AppShell } from '../../components/layout/AppShell';
-import { Button } from '../../components/ui/Button';
 
 const mockPipelines = [
   {
@@ -35,14 +32,6 @@ const mockPerformance = [
 ];
 
 export default function DataPage() {
-  const router = useRouter();
-  const supabase = useSupabaseClient();
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  };
-
   return (
     <>
       <Head>
@@ -58,12 +47,7 @@ export default function DataPage() {
         breadcrumbs={[
           { label: 'Accueil', href: '/' },
           { label: 'Data' },
-        ]}
-        headerActions={
-          <Button variant="ghost" onClick={handleSignOut}>
-            Déconnexion
-          </Button>
-        }
+          ]}
       >
         <div className="ms-card ms-card--neutral">
           <div className="ms-card__header">

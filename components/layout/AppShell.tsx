@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { AdminNavItem } from '../../types/navigation';
 import { ADMIN_NAV_ITEMS } from '../../lib/navigation';
+import { UserMenu } from './UserMenu';
 
 type Breadcrumb = {
   label: string;
@@ -113,21 +114,21 @@ export function AppShell({
             <span>{brandLabel}</span>
           </Link>
 
-          <div className="ms-toolbar ms-toolbar--end">
-            {headerActions}
-
-            {navItems.length > 0 ? (
-              <button
-                type="button"
-                className="ms-shell__nav-toggle"
-                aria-expanded={mobileMenuOpen}
-                aria-label={mobileMenuOpen ? 'Fermer la navigation' : 'Ouvrir la navigation'}
-                onClick={() => setMobileMenuOpen((value) => !value)}
-              >
-                {mobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
-              </button>
-            ) : null}
-          </div>
+            <div className="ms-toolbar ms-toolbar--end">
+              {headerActions ? <div className="ms-toolbar__actions">{headerActions}</div> : null}
+              {navItems.length > 0 ? (
+                <button
+                  type="button"
+                  className="ms-shell__nav-toggle"
+                  aria-expanded={mobileMenuOpen}
+                  aria-label={mobileMenuOpen ? 'Fermer la navigation' : 'Ouvrir la navigation'}
+                  onClick={() => setMobileMenuOpen((value) => !value)}
+                >
+                  {mobileMenuOpen ? <CloseIcon /> : <HamburgerIcon />}
+                </button>
+              ) : null}
+              <UserMenu />
+            </div>
         </div>
 
         {navItems.length > 0 ? (

@@ -19,14 +19,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
     label: 'Messages in-app',
     href: '/messages',
-    match: (path) =>
-      path === '/messages' ||
-      (path.startsWith('/messages') && !path.startsWith('/messages/new')),
-  },
-  {
-    label: 'Créer un message',
-    href: '/messages/new',
-    match: (path) => path.startsWith('/messages/new'),
+    match: (path) => path === '/messages' || path.startsWith('/messages/'),
   },
 ];
 

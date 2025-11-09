@@ -966,6 +966,23 @@ textarea {
   font-weight: 700;
 }
 
+.ms-trend {
+  font-size: var(--ms-font-sm);
+  font-weight: 600;
+}
+
+.ms-trend--positive {
+  color: var(--ms-color-success);
+}
+
+.ms-trend--negative {
+  color: var(--ms-color-danger);
+}
+
+.ms-trend--neutral {
+  color: var(--ms-color-text-muted);
+}
+
 .ms-footer-note {
   font-size: var(--ms-font-xs);
   color: var(--ms-color-text-muted);

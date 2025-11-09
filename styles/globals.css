@@ -741,6 +741,12 @@ textarea {
   border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
+.ms-alert--success {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--ms-color-success);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
 @media (min-width: 640px) {
   .ms-button {
     font-size: var(--ms-font-base);

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { InAppMessageFormData } from '../../types/in-app-messages';
 import { requireAdminSession } from '../../lib/auth';
+import { AppShell } from '../../components/layout/AppShell';
+import { Button } from '../../components/ui/Button';
 
 export default function NewMessage() {
   const router = useRouter();

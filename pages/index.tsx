@@ -250,9 +250,6 @@ export default function Home({ messageStats, dashboardMetrics }: HomeProps) {
               <Button href="/users" variant="secondary">
                 Gestion utilisateurs
               </Button>
-              <Button href="/data" variant="secondary">
-                Data
-              </Button>
               <Button href="/messages" variant="secondary">
                 Messages in-app
               </Button>

@@ -12,11 +12,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     match: (path) => path === '/users' || path.startsWith('/users/'),
   },
   {
-    label: 'Data',
-    href: '/data',
-    match: (path) => path === '/data' || path.startsWith('/data/'),
-  },
-  {
     label: 'Messages in-app',
     href: '/messages',
     match: (path) => path === '/messages' || path.startsWith('/messages/'),
